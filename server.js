@@ -9,11 +9,11 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Configure multer for file uploads
+// Multer config for PDF uploads
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
+    fileSize: 10 * 1024 * 1024, // 10MB
   },
   fileFilter: (req, file, cb) => {
     if (file.mimetype === 'application/pdf') {
@@ -24,7 +24,7 @@ const upload = multer({
   },
 });
 
-// ✅ CORS: allow frontend hosted on Vercel
+// CORS config
 app.use(cors({
   origin: 'https://www.wellmedai.com',
   credentials: true,
@@ -32,7 +32,7 @@ app.use(cors({
 
 app.use(express.json());
 
-// ✅ PDF Analysis endpoint
+// ✅ PDF Analysis Endpoint
 app.post('/api/analyze-pdf', upload.single('pdf'), async (req, res) => {
   try {
     if (!req.file) {
@@ -41,12 +41,12 @@ app.post('/api/analyze-pdf', upload.single('pdf'), async (req, res) => {
 
     const pdfBuffer = req.file.buffer;
     const pdfData = await pdfParse(pdfBuffer);
-    
+
     res.json({
       success: true,
       text: pdfData.text,
       pages: pdfData.numpages,
-      info: pdfData.info
+      info: pdfData.info,
     });
   } catch (error) {
     console.error('PDF Analysis Error:', error);
@@ -57,70 +57,67 @@ app.post('/api/analyze-pdf', upload.single('pdf'), async (req, res) => {
   }
 });
 
+// ✅ Chat Proxy Endpoint with Context Injection
+app.post('/api/chat', async (req, res) => {
+  try {
+    const {
+      messages,
+      model = 'gpt-3.5-turbo',
+      max_tokens = 4000,
+      temperature = 0.7,
+    } = req.body;
 
+    // System prompt defining assistant behavior
+    const systemPrompt = {
+      role: 'system',
+      content: 'You are Wellmed AI, a helpful assistant developed by Chakri. You specialize in medical coding and related topics. Do not mention OpenAI, GPT, ChatGPT, or your origins. Always stay in character as Wellmade AI.',
+    };
 
-// ✅ OpenAI API proxy endpoint with PDF context and medical question filtering
-app.post('/api/chat', async (req, res) => {  
-  try {  
-    const {  
-      messages,  
-      model = 'gpt-3.5-turbo',  
-      max_tokens = 4000,  
-      temperature = 0.7,  
-    } = req.body;  
-  
-    // ✅ Inject system prompt to define Wellmade AI  
-    const systemPrompt = {  
-      role: 'system',  
-      content: You are Wellmed AI, a helpful assistant developed by Chakri. You specialize in medical coding and related topics. Do not mention OpenAI, GPT, ChatGPT, or your origins. Always stay in character as Wellmade AI.,  
-    };  
-  
-    const modifiedMessages = [systemPrompt, ...messages];  
-  
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {  
-      method: 'POST',  
-      headers: {  
-        'Content-Type': 'application/json',  
-        'Authorization': Bearer ${process.env.OPENAI_API_KEY},  
-      },  
-      body: JSON.stringify({  
-        model,  
-        messages: modifiedMessages,  
-        max_tokens,  
-        temperature,  
-      }),  
-    });  
-  
-    const data = await response.json();  
-  
-    if (!response.ok) {  
-      console.error('OpenAI API Error:', data);  
-      return res.status(response.status).json({  
-        error: 'OpenAI API Error',  
-        details: data.error?.message || 'Unknown error',  
-      });  
-    }  
-  
-    // ✅ Sanitize any unwanted mentions  
-    if (data.choices?.[0]?.message?.content) {  
-      data.choices[0].message.content = data.choices[0].message.content.replace(  
-        /OpenAI|ChatGPT|GPT-4|GPT/gi,  
-        'Wellmade AI'  
-      );  
-    }  
-  
-    res.json(data);  
-  } catch (error) {  
-    console.error('Server Error:', error);  
-    res.status(500).json({  
-      error: 'Internal Server Error',  
-      details: error.message,  
-    });  
-  }  
+    const modifiedMessages = [systemPrompt, ...messages];
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: modifiedMessages,
+        max_tokens,
+        temperature,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('OpenAI API Error:', data);
+      return res.status(response.status).json({
+        error: 'OpenAI API Error',
+        details: data.error?.message || 'Unknown error',
+      });
+    }
+
+    // Sanitize unwanted references
+    if (data.choices?.[0]?.message?.content) {
+      data.choices[0].message.content = data.choices[0].message.content.replace(
+        /OpenAI|ChatGPT|GPT-4|GPT/gi,
+        'Wellmade AI'
+      );
+    }
+
+    res.json(data);
+  } catch (error) {
+    console.error('Server Error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      details: error.message,
+    });
+  }
 });
 
-
-// ✅ Health check endpoint
+// ✅ Health Check Endpoint
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'OK',
@@ -129,12 +126,10 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// ✅ No static frontend serving needed
-
-// ✅ Start the server
+// ✅ Start Server
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
-  console.log(`🌐 CORS allowed from: https://wellmade-ai.vercel.app`);
+  console.log(`🌐 CORS allowed from: https://www.wellmedai.com`);
   console.log(`🔍 Health check: http://localhost:${PORT}/api/health`);
   console.log(`📄 PDF Analysis endpoint: http://localhost:${PORT}/api/analyze-pdf`);
 });
