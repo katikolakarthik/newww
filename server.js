@@ -74,8 +74,10 @@ app.post('/api/chat', async (req, res) => {
     const lastUserMessage = messages?.slice().reverse().find(msg => msg.role === 'user')?.content || '';
 
     // ✅ Basic medical keyword check
-    const allowedKeywords =[
-  "ICD-10", "ICD-9", "ICD codes", "ICD-10-CM", "ICD-10-PCS", "diagnosis codes", "morbidity coding",
+    const allowedKeywords = [
+      'icd', 'cpt', 'drg', 'medical', 'diagnosis', 'procedure', 'modifiers', 'billing', 'claims',
+      'treatment', 'hospital', 'insurance', 'medication', 'chart', 'soap note', 'documentation',
+      'patient', 'record', "ICD-10", "ICD-9", "ICD codes", "ICD-10-CM", "ICD-10-PCS", "diagnosis codes", "morbidity coding",
   "mortality coding", "disease classification", "code set", "coding guidelines", "WHO classification",
   "Z codes", "E codes", "S codes", "external cause codes", "neoplasm table", "index to diseases",
   "tabular list", "laterality", "sequela", "primary diagnosis", "secondary diagnosis", "manifestation",
@@ -132,12 +134,8 @@ app.post('/api/chat', async (req, res) => {
   "case management codes", "quality reporting", "MIPS", "MACRA", "PQRS", "performance measures",
   "telehealth", "remote patient monitoring", "chronic care management", "transitional care management",
   "advance care planning", "palliative care coding", "hospice coding",
-
-  // Auto-generated filler terms to reach 1000
-  "medical_coding_term_161", "medical_coding_term_162", "medical_coding_term_163",
-  // ...
-  "medical_coding_term_1000"
-];
+'hba1c', 'rbs'
+    ]; 
 
     const isMedicalRelated = allowedKeywords.some(keyword =>
       lastUserMessage.toLowerCase().includes(keyword)
