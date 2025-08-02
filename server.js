@@ -57,7 +57,9 @@ app.post('/api/analyze-pdf', upload.single('pdf'), async (req, res) => {
   }
 });
 
-// ✅ OpenAI API proxy endpoint with PDF context
+
+
+// ✅ OpenAI API proxy endpoint with PDF context and medical question filtering
 app.post('/api/chat', async (req, res) => {
   try {
     const {
@@ -68,28 +70,41 @@ app.post('/api/chat', async (req, res) => {
       temperature = 0.7,
     } = req.body;
 
-    // Prepare messages with PDF context if available
+    // ✅ Get latest user message
+    const lastUserMessage = messages?.slice().reverse().find(msg => msg.role === 'user')?.content || '';
+
+    // ✅ Basic medical topic filter
+    const allowedKeywords = [
+      'icd', 'cpt', 'drg', 'medical', 'diagnosis', 'procedure', 'modifiers', 'billing', 'claims',
+      'treatment', 'hospital', 'insurance', 'medication', 'chart', 'soap note', 'documentation',
+      'patient', 'record', 'hba1c', 'rbs'
+    ];
+    const isMedicalRelated = allowedKeywords.some(keyword =>
+      lastUserMessage.toLowerCase().includes(keyword)
+    );
+
+    if (!isMedicalRelated) {
+      return res.status(400).json({
+        error: 'This assistant only answers medical coding-related questions. Please ask something relevant to medical coding.',
+      });
+    }
+
+    // ✅ Inject Wellmed AI identity and handle optional PDF content
     let finalMessages = [...messages];
-    
-    if (pdfContent) {
-      // Add PDF context to the system message
-      const systemMessage = finalMessages.find(msg => msg.role === 'system');
-      if (systemMessage) {
-        systemMessage.content = `You are a helpful medical coding assistant. A PDF document has been uploaded for analysis. Here is the PDF content:
 
-${pdfContent}
+    const systemMessageContent = `You are Wellmed AI, a helpful assistant developed by Chakri. You specialize in medical coding and related topics. 
+${pdfContent ? `A PDF document has been uploaded for analysis. Here is the PDF content:\n\n${pdfContent}\n\nPlease provide accurate answers based on this context as well.` : ''}
 
-Please provide clear, accurate answers about DRG codes, CPT codes, medical coding guidelines, and related topics. When answering questions, consider both the user's question and the content from the uploaded PDF document. Format your responses in a structured way similar to ChatGPT with clear sections, bullet points, and explanations. Use markdown formatting for better readability.`;
-      } else {
-        finalMessages.unshift({
-          role: 'system',
-          content: `You are a helpful medical coding assistant. A PDF document has been uploaded for analysis. Here is the PDF content:
+Always format your responses in a clear, structured way using bullet points, headings, and markdown. Do not mention OpenAI, ChatGPT, or your origins. Always stay in character as Wellmed AI.`;
 
-${pdfContent}
-
-Please provide clear, accurate answers about DRG codes, CPT codes, medical coding guidelines, and related topics. When answering questions, consider both the user's question and the content from the uploaded PDF document. Format your responses in a structured way similar to ChatGPT with clear sections, bullet points, and explanations. Use markdown formatting for better readability.`
-        });
-      }
+    const existingSystemIndex = finalMessages.findIndex(msg => msg.role === 'system');
+    if (existingSystemIndex >= 0) {
+      finalMessages[existingSystemIndex].content = systemMessageContent;
+    } else {
+      finalMessages.unshift({
+        role: 'system',
+        content: systemMessageContent,
+      });
     }
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -116,6 +131,14 @@ Please provide clear, accurate answers about DRG codes, CPT codes, medical codin
       });
     }
 
+    // ✅ Sanitize unwanted mentions
+    if (data.choices?.[0]?.message?.content) {
+      data.choices[0].message.content = data.choices[0].message.content.replace(
+        /OpenAI|ChatGPT|GPT-4|GPT/gi,
+        'Wellmed AI'
+      );
+    }
+
     res.json(data);
   } catch (error) {
     console.error('Server Error:', error);
@@ -125,6 +148,9 @@ Please provide clear, accurate answers about DRG codes, CPT codes, medical codin
     });
   }
 });
+
+
+
 
 // ✅ Health check endpoint
 app.get('/api/health', (req, res) => {
