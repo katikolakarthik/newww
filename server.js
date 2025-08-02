@@ -26,7 +26,7 @@ const upload = multer({
 
 // ✅ CORS: allow frontend hosted on Vercel
 app.use(cors({
-  origin: 'https://wellmade-ai.vercel.app','https://www.wellmedai.com',
+  origin: 'https://www.wellmedai.com',
   credentials: true,
 }));
 
