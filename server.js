@@ -83,11 +83,13 @@ app.post('/api/chat', async (req, res) => {
       lastUserMessage.toLowerCase().includes(keyword)
     );
 
+    // ❌ Custom error message if not medical-related
     if (!isMedicalRelated) {
       return res.status(400).json({
-        error: 'This assistant only answers medical coding-related questions. Please ask something relevant to medical coding.',
+        error: 'I am a medical coding assistant. I only answer medical-related questions.',
       });
     }
+
 
     // ✅ Inject Wellmed AI identity and handle optional PDF content
     let finalMessages = [...messages];
