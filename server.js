@@ -70,31 +70,49 @@ app.post('/api/chat', async (req, res) => {
       temperature = 0.7,
     } = req.body;
 
-    // ✅ Get latest user message
+    // ✅ Get the latest user message
     const lastUserMessage = messages?.slice().reverse().find(msg => msg.role === 'user')?.content || '';
 
-    // ✅ Basic medical topic filter
+    // ✅ Basic medical keyword check
     const allowedKeywords = [
-      'icd', 'cpt', 'drg', 'medical', 'diagnosis', 'procedure', 'modifiers', 'billing', 'claims',
-      'treatment', 'hospital', 'insurance', 'medication', 'chart', 'soap note', 'documentation',
-      'patient', 'record', 'hba1c', 'rbs'
+      'icd', 'cpt', 'drg', 'medical', 'diagnosis', 'procedure', 'modifiers', 'billing',
+      'claims', 'treatment', 'hospital', 'insurance', 'medication', 'chart',
+      'soap note', 'documentation', 'patient', 'record', 'hba1c', 'rbs'
     ];
+
     const isMedicalRelated = allowedKeywords.some(keyword =>
       lastUserMessage.toLowerCase().includes(keyword)
     );
 
-    // ❌ Custom error message if not medical-related
+    // ❌ Chat-style response if unrelated
     if (!isMedicalRelated) {
-      return res.status(400).json({
-        error: 'I am a medical coding assistant. I only answer medical-related questions.',
+      return res.json({
+        id: 'wellmed-unrelated-response',
+        object: 'chat.completion',
+        created: Date.now(),
+        model,
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: `👋 I am a **medical coding assistant**. I only answer **medical-related questions** such as ICD codes, CPT, DRG classifications, or billing guidelines. Please ask something related to **medical coding**. 😊`,
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 0,
+          completion_tokens: 0,
+          total_tokens: 0,
+        },
       });
     }
 
-
-    // ✅ Inject Wellmed AI identity and handle optional PDF content
+    // ✅ Inject Wellmed AI identity with optional PDF content
     let finalMessages = [...messages];
 
-    const systemMessageContent = `You are Wellmed AI, a helpful assistant developed by Chakri. You specialize in medical coding and related topics. 
+    const systemMessageContent = `You are Wellmed AI, a helpful assistant developed by Chakri. You specialize in medical coding and related topics.
 ${pdfContent ? `A PDF document has been uploaded for analysis. Here is the PDF content:\n\n${pdfContent}\n\nPlease provide accurate answers based on this context as well.` : ''}
 
 Always format your responses in a clear, structured way using bullet points, headings, and markdown. Do not mention OpenAI, ChatGPT, or your origins. Always stay in character as Wellmed AI.`;
@@ -133,7 +151,7 @@ Always format your responses in a clear, structured way using bullet points, hea
       });
     }
 
-    // ✅ Sanitize unwanted mentions
+    // ✅ Replace mentions of GPT/OpenAI with Wellmed AI
     if (data.choices?.[0]?.message?.content) {
       data.choices[0].message.content = data.choices[0].message.content.replace(
         /OpenAI|ChatGPT|GPT-4|GPT/gi,
@@ -150,8 +168,6 @@ Always format your responses in a clear, structured way using bullet points, hea
     });
   }
 });
-
-
 
 
 // ✅ Health check endpoint
