@@ -126,6 +126,74 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+
+
+app.post('/api/chat1', async (req, res) => {
+  try {
+    const {
+      messages,
+      model = 'gpt-4o',
+      max_tokens = 2000,
+      temperature = 0.7,
+      pdfContent
+    } = req.body;
+
+    const systemPrompt = {
+      role: 'system',
+      content:
+        'You are Wellmed AI, a helpful assistant developed by Chakri. You specialize in medical coding and related topics. Do not mention OpenAI, GPT, ChatGPT, or your origins.'
+    };
+
+    // If PDF content exists, inject it as context
+    const contextPrompt = pdfContent
+      ? { role: 'system', content: `The user has provided the following PDF content for reference:\n${pdfContent}` }
+      : null;
+
+    const modifiedMessages = contextPrompt
+      ? [systemPrompt, contextPrompt, ...messages]
+      : [systemPrompt, ...messages];
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: modifiedMessages,
+        max_tokens,
+        temperature
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(response.status).json({
+        error: 'OpenAI API Error',
+        details: data.error?.message || 'Unknown error'
+      });
+    }
+
+    // Replace any unwanted references
+    if (data.choices?.[0]?.message?.content) {
+      data.choices[0].message.content = data.choices[0].message.content.replace(
+        /OpenAI|ChatGPT|GPT-4|GPT/gi,
+        'Wellmed AI'
+      );
+    }
+
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal Server Error', details: error.message });
+  }
+});
+
+
+
+
+
 // ✅ Start Server
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
