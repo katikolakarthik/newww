@@ -133,7 +133,7 @@ app.post('/api/chat1', async (req, res) => {
     const {
       messages,
       model = 'gpt-4o',
-      max_tokens = 2000,
+      max_tokens = 20000,
       temperature = 0.7,
       pdfContent
     } = req.body;
